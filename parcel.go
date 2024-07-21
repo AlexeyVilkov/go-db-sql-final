@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 type ParcelStore struct {
@@ -22,7 +21,6 @@ func (s ParcelStore) Add(p Parcel) (int, error) {
 		sql.Named("created_at", p.CreatedAt))
 
 	if err != nil {
-		fmt.Println(err)
 		return 0, err
 	}
 
@@ -54,7 +52,6 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 	rows, err := s.db.Query("select number, client, status, address, created_at from parcel where client = :client",
 		sql.Named("client", client))
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -67,11 +64,14 @@ func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
 
 		err := rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
 		if err != nil {
-			fmt.Println(err)
 			return nil, err
 		}
 
 		res = append(res, p)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
@@ -84,7 +84,6 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 		sql.Named("number", number))
 
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -94,23 +93,12 @@ func (s ParcelStore) SetStatus(number int, status string) error {
 func (s ParcelStore) SetAddress(number int, address string) error {
 	// реализуйте обновление адреса в таблице parcel
 	// менять адрес можно только если значение статуса registered
-	p, err := s.Get(number)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if p.Status != ParcelStatusRegistered {
-		fmt.Printf("Адрес изменить невозможно. У посылки № %d статус: %s\n", p.Number, p.Status)
-		return nil
-	}
-
-	_, err = s.db.Exec("update parcel set address = :address where number = :number",
+	_, err := s.db.Exec("update parcel set address = :address where number = :number and status = :status",
 		sql.Named("address", address),
-		sql.Named("number", number))
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
 
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
@@ -120,22 +108,11 @@ func (s ParcelStore) SetAddress(number int, address string) error {
 func (s ParcelStore) Delete(number int) error {
 	// реализуйте удаление строки из таблицы parcel
 	// удалять строку можно только если значение статуса registered
-	p, err := s.Get(number)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-
-	if p.Status != ParcelStatusRegistered {
-		fmt.Printf("Удаление невозможно. У посылки № %d статус: %s\n", p.Number, p.Status)
-		return nil
-	}
-
-	_, err = s.db.Exec("delete from parcel where number = :number",
-		sql.Named("number", number))
+	_, err := s.db.Exec("delete from parcel where number = :number and status = :status",
+		sql.Named("number", number),
+		sql.Named("status", ParcelStatusRegistered))
 
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 
